@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 app = FastAPI(
@@ -41,6 +42,111 @@ async def startup_event() -> None:
 async def health_check() -> dict[str, str]:
     """ヘルスチェックエンドポイント"""
     return {"status": "ok"}
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index() -> str:
+    """Webページを表示"""
+    return """
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obsidian Synapsis</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #e0e0e0;
+        }
+        h1 { color: #7c3aed; }
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #2d2d2d;
+            color: #e0e0e0;
+            resize: vertical;
+        }
+        button {
+            margin-top: 16px;
+            padding: 12px 32px;
+            font-size: 16px;
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover { background: #6d28d9; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        #message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+        .success { background: #065f46; display: block !important; }
+        .error { background: #991b1b; display: block !important; }
+    </style>
+</head>
+<body>
+    <h1>Obsidian Synapsis</h1>
+    <textarea id="content" placeholder="保存する内容を入力..."></textarea>
+    <br>
+    <button id="saveBtn" onclick="saveContent()">保存</button>
+    <div id="message"></div>
+
+    <script>
+        async function saveContent() {
+            const content = document.getElementById('content').value;
+            const btn = document.getElementById('saveBtn');
+            const msg = document.getElementById('message');
+
+            if (!content.trim()) {
+                msg.textContent = '内容を入力してください';
+                msg.className = 'error';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+
+            try {
+                const res = await fetch('/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    msg.textContent = data.message;
+                    msg.className = 'success';
+                    document.getElementById('content').value = '';
+                } else {
+                    msg.textContent = data.detail || '保存に失敗しました';
+                    msg.className = 'error';
+                }
+            } catch (e) {
+                msg.textContent = 'エラー: ' + e.message;
+                msg.className = 'error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '保存';
+            }
+        }
+    </script>
+</body>
+</html>
+"""
 
 
 @app.post("/save", response_model=SaveResponse)
@@ -80,4 +186,4 @@ async def save_file(request: SaveRequest) -> SaveResponse:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
