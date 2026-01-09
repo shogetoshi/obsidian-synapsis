@@ -6,14 +6,10 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from openai import OpenAI
 from pydantic import BaseModel
-
-# 環境変数の読み込み
-load_dotenv()
 
 # OpenAIクライアントの初期化
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
