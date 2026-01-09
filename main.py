@@ -116,6 +116,7 @@ async def index() -> str:
         }
         button:hover { background: #6d28d9; }
         button:disabled { background: #666; cursor: not-allowed; }
+        #askAIBtn:hover { background: #059669; }
         #message {
             margin-top: 16px;
             padding: 12px;
@@ -131,7 +132,12 @@ async def index() -> str:
     <textarea id="content" placeholder="保存する内容を入力..."></textarea>
     <br>
     <button id="saveBtn" onclick="saveContent()">保存</button>
+    <button id="askAIBtn" onclick="askAI()" style="background: #10b981; margin-left: 8px;">AIに質問</button>
     <div id="message"></div>
+    <div id="aiResponse" style="margin-top: 20px; padding: 16px; background: #2d2d2d; border-radius: 8px; display: none;">
+        <h3 style="color: #10b981; margin-top: 0;">AI回答</h3>
+        <div id="aiResponseContent" style="white-space: pre-wrap;"></div>
+    </div>
 
     <script>
         async function saveContent() {
@@ -170,6 +176,49 @@ async def index() -> str:
             } finally {
                 btn.disabled = false;
                 btn.textContent = '保存';
+            }
+        }
+
+        async function askAI() {
+            const content = document.getElementById('content').value;
+            const btn = document.getElementById('askAIBtn');
+            const msg = document.getElementById('message');
+            const responseDiv = document.getElementById('aiResponse');
+            const responseContent = document.getElementById('aiResponseContent');
+
+            if (!content.trim()) {
+                msg.textContent = '質問を入力してください';
+                msg.className = 'error';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'AI処理中...';
+            responseDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/ask-ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    msg.textContent = data.message;
+                    msg.className = 'success';
+                    responseContent.textContent = data.ai_response;
+                    responseDiv.style.display = 'block';
+                } else {
+                    msg.textContent = data.detail || 'AI処理に失敗しました';
+                    msg.className = 'error';
+                }
+            } catch (e) {
+                msg.textContent = 'エラー: ' + e.message;
+                msg.className = 'error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'AIに質問';
             }
         }
     </script>
