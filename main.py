@@ -32,6 +32,22 @@ class SaveResponse(BaseModel):
     message: str
 
 
+class AskAIRequest(BaseModel):
+    """AI問い合わせリクエストのスキーマ"""
+
+    content: str
+    filename: str | None = None
+
+
+class AskAIResponse(BaseModel):
+    """AI問い合わせレスポンスのスキーマ"""
+
+    success: bool
+    ai_response: str
+    filepath: str
+    message: str
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     """起動時にdataディレクトリを作成"""
@@ -181,6 +197,17 @@ async def save_file(request: SaveRequest) -> SaveResponse:
         filepath=str(filepath),
         message=f"ファイルを保存しました: {safe_filename}",
     )
+
+
+@app.post("/ask-ai", response_model=AskAIResponse)
+async def ask_ai(request: AskAIRequest) -> AskAIResponse:
+    """
+    ユーザーの質問をAIに送信し、回答をファイルとして保存
+
+    - content: ユーザーの質問
+    - filename: ファイル名（省略時は日時ベースで自動生成）
+    """
+    raise NotImplementedError("AI機能は未実装です")
 
 
 if __name__ == "__main__":
