@@ -2,12 +2,17 @@
 Obsidian Synapsis - ローカルからリクエストを受けてファイルとして保存するWebサーバー
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from openai import OpenAI
 from pydantic import BaseModel
+
+# OpenAIクライアントの初期化
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI(
     title="Obsidian Synapsis",
@@ -32,10 +37,30 @@ class SaveResponse(BaseModel):
     message: str
 
 
+class AskAIRequest(BaseModel):
+    """AI問い合わせリクエストのスキーマ"""
+
+    content: str
+    filename: str | None = None
+
+
+class AskAIResponse(BaseModel):
+    """AI問い合わせレスポンスのスキーマ"""
+
+    success: bool
+    ai_response: str
+    filepath: str
+    message: str
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
-    """起動時にdataディレクトリを作成"""
+    """起動時にdataディレクトリを作成し、環境変数を確認"""
     DATA_DIR.mkdir(exist_ok=True)
+
+    # OpenAI APIキーの存在確認
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY環境変数が設定されていません")
 
 
 @app.get("/health")
@@ -87,6 +112,7 @@ async def index() -> str:
         }
         button:hover { background: #6d28d9; }
         button:disabled { background: #666; cursor: not-allowed; }
+        #askAIBtn:hover { background: #059669; }
         #message {
             margin-top: 16px;
             padding: 12px;
@@ -102,7 +128,12 @@ async def index() -> str:
     <textarea id="content" placeholder="保存する内容を入力..."></textarea>
     <br>
     <button id="saveBtn" onclick="saveContent()">保存</button>
+    <button id="askAIBtn" onclick="askAI()" style="background: #10b981; margin-left: 8px;">AIに質問</button>
     <div id="message"></div>
+    <div id="aiResponse" style="margin-top: 20px; padding: 16px; background: #2d2d2d; border-radius: 8px; display: none;">
+        <h3 style="color: #10b981; margin-top: 0;">AI回答</h3>
+        <div id="aiResponseContent" style="white-space: pre-wrap;"></div>
+    </div>
 
     <script>
         async function saveContent() {
@@ -143,6 +174,49 @@ async def index() -> str:
                 btn.textContent = '保存';
             }
         }
+
+        async function askAI() {
+            const content = document.getElementById('content').value;
+            const btn = document.getElementById('askAIBtn');
+            const msg = document.getElementById('message');
+            const responseDiv = document.getElementById('aiResponse');
+            const responseContent = document.getElementById('aiResponseContent');
+
+            if (!content.trim()) {
+                msg.textContent = '質問を入力してください';
+                msg.className = 'error';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'AI処理中...';
+            responseDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/ask-ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    msg.textContent = data.message;
+                    msg.className = 'success';
+                    responseContent.textContent = data.ai_response;
+                    responseDiv.style.display = 'block';
+                } else {
+                    msg.textContent = data.detail || 'AI処理に失敗しました';
+                    msg.className = 'error';
+                }
+            } catch (e) {
+                msg.textContent = 'エラー: ' + e.message;
+                msg.className = 'error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'AIに質問';
+            }
+        }
     </script>
 </body>
 </html>
@@ -181,6 +255,55 @@ async def save_file(request: SaveRequest) -> SaveResponse:
         filepath=str(filepath),
         message=f"ファイルを保存しました: {safe_filename}",
     )
+
+
+@app.post("/ask-ai", response_model=AskAIResponse)
+async def ask_ai(request: AskAIRequest) -> AskAIResponse:
+    """
+    ユーザーの質問をAIに送信し、回答をファイルとして保存
+
+    - content: ユーザーの質問
+    - filename: ファイル名（省略時は日時ベースで自動生成）
+    """
+    try:
+        # OpenAI APIを呼び出し
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": request.content}],
+            temperature=0.7,
+        )
+
+        ai_response = response.choices[0].message.content
+
+        # ファイル名の決定
+        if request.filename:
+            filename = request.filename
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"ai_{timestamp}.md"
+
+        # パストラバーサル対策
+        safe_filename = Path(filename).name
+        if not safe_filename:
+            raise HTTPException(status_code=400, detail="無効なファイル名です")
+
+        filepath = DATA_DIR / safe_filename
+
+        # 質問と回答をMarkdown形式で保存
+        content_to_save = f"# 質問\n\n{request.content}\n\n# AI回答\n\n{ai_response}\n"
+        filepath.write_text(content_to_save, encoding="utf-8")
+
+        return AskAIResponse(
+            success=True,
+            ai_response=ai_response,
+            filepath=str(filepath),
+            message=f"AI回答を保存しました: {safe_filename}",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"AI処理中にエラーが発生しました: {e!s}"
+        ) from e
 
 
 if __name__ == "__main__":
