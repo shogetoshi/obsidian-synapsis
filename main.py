@@ -220,7 +220,45 @@ async def ask_ai(request: AskAIRequest) -> AskAIResponse:
     - content: ユーザーの質問
     - filename: ファイル名（省略時は日時ベースで自動生成）
     """
-    raise NotImplementedError("AI機能は未実装です")
+    try:
+        # OpenAI APIを呼び出し
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": request.content}],
+            temperature=0.7,
+        )
+
+        ai_response = response.choices[0].message.content
+
+        # ファイル名の決定
+        if request.filename:
+            filename = request.filename
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"ai_{timestamp}.md"
+
+        # パストラバーサル対策
+        safe_filename = Path(filename).name
+        if not safe_filename:
+            raise HTTPException(status_code=400, detail="無効なファイル名です")
+
+        filepath = DATA_DIR / safe_filename
+
+        # 質問と回答をMarkdown形式で保存
+        content_to_save = f"# 質問\n\n{request.content}\n\n# AI回答\n\n{ai_response}\n"
+        filepath.write_text(content_to_save, encoding="utf-8")
+
+        return AskAIResponse(
+            success=True,
+            ai_response=ai_response,
+            filepath=str(filepath),
+            message=f"AI回答を保存しました: {safe_filename}",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"AI処理中にエラーが発生しました: {e!s}"
+        ) from e
 
 
 if __name__ == "__main__":
