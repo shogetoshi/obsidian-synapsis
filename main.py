@@ -2,12 +2,21 @@
 Obsidian Synapsis - ローカルからリクエストを受けてファイルとして保存するWebサーバー
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from openai import OpenAI
 from pydantic import BaseModel
+
+# 環境変数の読み込み
+load_dotenv()
+
+# OpenAIクライアントの初期化
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI(
     title="Obsidian Synapsis",
@@ -50,8 +59,12 @@ class AskAIResponse(BaseModel):
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """起動時にdataディレクトリを作成"""
+    """起動時にdataディレクトリを作成し、環境変数を確認"""
     DATA_DIR.mkdir(exist_ok=True)
+
+    # OpenAI APIキーの存在確認
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY環境変数が設定されていません")
 
 
 @app.get("/health")
