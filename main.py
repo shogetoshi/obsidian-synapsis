@@ -2,10 +2,12 @@
 Obsidian Synapsis - ローカルからリクエストを受けてファイルとして保存するWebサーバー
 """
 
+import asyncio
 import json
 import os
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -39,6 +41,8 @@ class SaveResponse(BaseModel):
     success: bool
     filepath: str
     message: str
+    git_pushed: bool = False
+    git_error: str | None = None
 
 
 class AskAIRequest(BaseModel):
@@ -56,6 +60,8 @@ class AskAIResponse(BaseModel):
     ai_response: str
     filepath: str
     message: str
+    git_pushed: bool = False
+    git_error: str | None = None
 
 
 class ModeConfig(BaseModel):
@@ -130,6 +136,69 @@ def get_mode_by_id(mode_id: str) -> ModeConfig | None:
 def build_prompt_from_template(template: str, content: str) -> str:
     """プロンプトテンプレートにコンテンツを埋め込む"""
     return template.format(content=content)
+
+
+async def git_commit_and_push(repo_dir: Path) -> tuple[bool, str | None]:
+    """
+    Git commit & push を実行
+
+    Args:
+        repo_dir: リポジトリのルートディレクトリ
+
+    Returns:
+        (成功フラグ, エラーメッセージ or None)
+    """
+    try:
+        # JST現在時刻を取得
+        jst = ZoneInfo("Asia/Tokyo")
+        now = datetime.now(jst)
+        commit_message = f"Synapsis: {now.strftime('%Y-%m-%d %H:%M:%S')}"
+
+        # git add . を実行
+        add_process = await asyncio.create_subprocess_exec(
+            "git", "add", ".",
+            cwd=str(repo_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await add_process.communicate()
+
+        if add_process.returncode != 0:
+            return False, "git add failed"
+
+        # git commit を実行
+        commit_process = await asyncio.create_subprocess_exec(
+            "git", "commit", "-m", commit_message,
+            cwd=str(repo_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await commit_process.communicate()
+
+        # commitがない場合(nothing to commit)は成功とみなす
+        if commit_process.returncode != 0:
+            stderr_text = stderr.decode("utf-8")
+            if "nothing to commit" in stderr_text:
+                return True, None
+            return False, f"git commit failed: {stderr_text}"
+
+        # git push --force を実行
+        push_process = await asyncio.create_subprocess_exec(
+            "git", "push", "--force",
+            cwd=str(repo_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await push_process.communicate()
+
+        if push_process.returncode != 0:
+            stderr_text = stderr.decode("utf-8")
+            return False, f"git push failed: {stderr_text}"
+
+        return True, None
+
+    except Exception as e:
+        return False, f"git operation error: {str(e)}"
 
 
 @app.get("/health")
@@ -275,6 +344,7 @@ async def index() -> str:
         }
         .success { background: #065f46; display: block !important; }
         .error { background: #991b1b; display: block !important; }
+        .warning { background: #92400e; display: block !important; }
 
         #aiResponse {
             margin-top: 24px;
@@ -398,7 +468,16 @@ async def index() -> str:
                 const data = await res.json();
 
                 if (res.ok) {
-                    showMessage(data.message, 'success');
+                    let message = data.message;
+
+                    // Git push結果を追加
+                    if (data.git_pushed) {
+                        message += ' (Git push成功)';
+                    } else if (data.git_error) {
+                        message += ` (Git push失敗: ${data.git_error})`;
+                    }
+
+                    showMessage(message, data.git_pushed ? 'success' : 'warning');
                     document.getElementById('content').value = '';
                 } else {
                     showMessage(data.detail || '保存に失敗しました', 'error');
@@ -444,7 +523,16 @@ async def index() -> str:
                 const data = await res.json();
 
                 if (res.ok) {
-                    showMessage(data.message, 'success');
+                    let message = data.message;
+
+                    // Git push結果を追加
+                    if (data.git_pushed) {
+                        message += ' (Git push成功)';
+                    } else if (data.git_error) {
+                        message += ` (Git push失敗: ${data.git_error})`;
+                    }
+
+                    showMessage(message, data.git_pushed ? 'success' : 'warning');
                     responseContent.textContent = data.ai_response;
                     responseDiv.style.display = 'block';
                 } else {
@@ -475,7 +563,7 @@ async def index() -> str:
 @app.post("/save", response_model=SaveResponse)
 async def save_file(request: SaveRequest) -> SaveResponse:
     """
-    リクエスト内容をファイルとして保存
+    リクエスト内容をファイルとして保存し、git commit & push
 
     - filename: ファイル名（省略時は日時ベースで自動生成）
     - content: 保存する内容
@@ -499,17 +587,22 @@ async def save_file(request: SaveRequest) -> SaveResponse:
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"ファイル保存に失敗: {e}") from e
 
+    # Git commit & push を実行（data/ディレクトリのリポジトリに対して）
+    git_success, git_error = await git_commit_and_push(DATA_DIR)
+
     return SaveResponse(
         success=True,
         filepath=str(filepath),
         message=f"ファイルを保存しました: {safe_filename}",
+        git_pushed=git_success,
+        git_error=git_error,
     )
 
 
 @app.post("/ask-ai", response_model=AskAIResponse)
 async def ask_ai(request: AskAIRequest) -> AskAIResponse:
     """
-    ユーザーの質問をAIに送信し、回答をモード別ディレクトリに保存
+    ユーザーの質問をAIに送信し、回答をモード別ディレクトリに保存し、git commit & push
 
     - content: ユーザーの質問/入力
     - mode_id: 使用するモードのID
@@ -563,11 +656,16 @@ async def ask_ai(request: AskAIRequest) -> AskAIResponse:
         )
         filepath.write_text(content_to_save, encoding="utf-8")
 
+        # Git commit & push を実行（data/ディレクトリのリポジトリに対して）
+        git_success, git_error = await git_commit_and_push(DATA_DIR)
+
         return AskAIResponse(
             success=True,
             ai_response=ai_response,
             filepath=str(filepath),
             message=f"AI回答を保存しました: {mode.name} / {safe_filename}",
+            git_pushed=git_success,
+            git_error=git_error,
         )
 
     except Exception as e:
