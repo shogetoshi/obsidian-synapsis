@@ -554,7 +554,7 @@ async def index() -> str:
 @app.post("/save", response_model=SaveResponse)
 async def save_file(request: SaveRequest) -> SaveResponse:
     """
-    リクエスト内容をファイルとして保存
+    リクエスト内容をファイルとして保存し、git commit & push
 
     - filename: ファイル名（省略時は日時ベースで自動生成）
     - content: 保存する内容
@@ -578,10 +578,16 @@ async def save_file(request: SaveRequest) -> SaveResponse:
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"ファイル保存に失敗: {e}") from e
 
+    # Git commit & push を実行
+    repo_root = get_repo_root()
+    git_success, git_error = await git_commit_and_push(repo_root)
+
     return SaveResponse(
         success=True,
         filepath=str(filepath),
         message=f"ファイルを保存しました: {safe_filename}",
+        git_pushed=git_success,
+        git_error=git_error,
     )
 
 
