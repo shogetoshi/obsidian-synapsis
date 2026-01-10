@@ -478,7 +478,16 @@ async def index() -> str:
                 const data = await res.json();
 
                 if (res.ok) {
-                    showMessage(data.message, 'success');
+                    let message = data.message;
+
+                    // Git push結果を追加
+                    if (data.git_pushed) {
+                        message += ' (Git push成功)';
+                    } else if (data.git_error) {
+                        message += ` (Git push失敗: ${data.git_error})`;
+                    }
+
+                    showMessage(message, data.git_pushed ? 'success' : 'warning');
                     document.getElementById('content').value = '';
                 } else {
                     showMessage(data.detail || '保存に失敗しました', 'error');
