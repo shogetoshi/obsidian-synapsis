@@ -354,6 +354,7 @@ async def index() -> str:
         }
         .success { background: #065f46; display: block !important; }
         .error { background: #991b1b; display: block !important; }
+        .warning { background: #92400e; display: block !important; }
 
         #aiResponse {
             margin-top: 24px;
