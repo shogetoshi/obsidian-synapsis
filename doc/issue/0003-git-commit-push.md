@@ -1,0 +1,12 @@
+- 保存された内容をgit commit & push
+    - 保存先ディレクトリ（ここではdata/）はgitで管理されている前提
+    - 新しくファイルを保存したらこのリポジトリでcommitとpushを行う
+        - commitは単純に新規ファイルと今変更されているもの全てをコミットして良い
+            - `git commit .`で良いはず
+        - commit messageは
+            - `Synapsis: 現在時刻`（JST）
+            - 例
+                - `Synapsis: 2026-01-09 23:25:52`
+    - pushはforceにしたい
+        - pushに失敗したらユーザに通知する表示を出す
+
