@@ -1,0 +1,144 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1e1e1e;
+    color: #e0e0e0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+/* 左ペイン: タブナビゲーション */
+.sidebar {
+    width: 250px;
+    background: #252525;
+    border-right: 1px solid #444;
+    padding: 20px 0;
+    overflow-y: auto;
+}
+
+.sidebar h2 {
+    color: #7c3aed;
+    padding: 0 20px 20px;
+    font-size: 24px;
+}
+
+.mode-tab {
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+}
+
+.mode-tab:hover {
+    background: #2d2d2d;
+}
+
+.mode-tab.active {
+    background: #2d2d2d;
+    border-left-color: #7c3aed;
+}
+
+.mode-tab-name {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.mode-tab-desc {
+    font-size: 13px;
+    color: #999;
+}
+
+/* 右ペイン: メインコンテンツ */
+.main-content {
+    flex: 1;
+    padding: 40px;
+    overflow-y: auto;
+}
+
+.mode-title {
+    color: #7c3aed;
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.mode-description {
+    color: #999;
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+
+textarea {
+    width: 100%;
+    height: 300px;
+    padding: 16px;
+    font-size: 16px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    background: #2d2d2d;
+    color: #e0e0e0;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.button-group {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+}
+
+button {
+    padding: 12px 32px;
+    font-size: 16px;
+    background: #7c3aed;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover { background: #6d28d9; }
+button:disabled { background: #666; cursor: not-allowed; }
+#askAIBtn { background: #10b981; }
+#askAIBtn:hover { background: #059669; }
+
+#message {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    display: none;
+}
+
+.success { background: #065f46; display: block !important; }
+.error { background: #991b1b; display: block !important; }
+.warning { background: #92400e; display: block !important; }
+
+#aiResponse {
+    margin-top: 24px;
+    padding: 20px;
+    background: #2d2d2d;
+    border-radius: 8px;
+    display: none;
+}
+
+#aiResponse h3 {
+    color: #10b981;
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+#aiResponseContent {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}

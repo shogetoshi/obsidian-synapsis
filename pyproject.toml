@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "obsidian-synapsis"
 version = "0.1.0"
@@ -7,7 +11,11 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "openai>=1.0.0",
+    "jinja2>=3.1.0",
 ]
+
+[tool.setuptools]
+packages = ["controllers", "services", "models"]
 
 [project.optional-dependencies]
 dev = [
