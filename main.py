@@ -60,6 +60,8 @@ class AskAIResponse(BaseModel):
     ai_response: str
     filepath: str
     message: str
+    git_pushed: bool = False
+    git_error: str | None = None
 
 
 class ModeConfig(BaseModel):
