@@ -1,0 +1,26 @@
+{
+  "modes": [
+    {
+      "id": "general",
+      "name": "一般的質問",
+      "prompt_template": "ユーザーの質問に回答してください。\n\n質問: {content}",
+      "save_dir": "general",
+      "description": "一般的な質問や相談に対応します"
+    },
+    {
+      "id": "translate",
+      "name": "翻訳",
+      "prompt_template": "以下の文章を日本語に翻訳してください。\n\n原文: {content}",
+      "save_dir": "translate",
+      "description": "テキストを日本語に翻訳します"
+    },
+    {
+      "id": "summarize",
+      "name": "要約",
+      "prompt_template": "以下のWebページまたはテキストを要約してください。\n\n内容: {content}",
+      "save_dir": "summarize",
+      "description": "長文やWebページを要約します"
+    }
+  ],
+  "default_mode": "general"
+}

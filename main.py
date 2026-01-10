@@ -2,6 +2,7 @@
 Obsidian Synapsis - ローカルからリクエストを受けてファイルとして保存するWebサーバー
 """
 
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,9 @@ from pydantic import BaseModel
 
 # OpenAIクライアントの初期化
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# 設定ファイルのパス
+CONFIG_FILE = Path(__file__).parent / "modes_config.json"
 
 app = FastAPI(
     title="Obsidian Synapsis",
@@ -41,6 +45,7 @@ class AskAIRequest(BaseModel):
     """AI問い合わせリクエストのスキーマ"""
 
     content: str
+    mode_id: str = "general"  # モードIDを追加
     filename: str | None = None
 
 
@@ -53,20 +58,88 @@ class AskAIResponse(BaseModel):
     message: str
 
 
+class ModeConfig(BaseModel):
+    """モード設定のスキーマ"""
+
+    id: str
+    name: str
+    prompt_template: str
+    save_dir: str
+    description: str
+
+
+class ModesConfig(BaseModel):
+    """モード設定全体のスキーマ"""
+
+    modes: list[ModeConfig]
+    default_mode: str
+
+
+class GetModesResponse(BaseModel):
+    """モード一覧取得レスポンスのスキーマ"""
+
+    modes: list[ModeConfig]
+    default_mode: str
+
+
+# モード設定をグローバル変数として保持
+modes_config: ModesConfig | None = None
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
-    """起動時にdataディレクトリを作成し、環境変数を確認"""
+    """起動時にdataディレクトリを作成し、環境変数とモード設定を確認"""
+    global modes_config
+
     DATA_DIR.mkdir(exist_ok=True)
 
     # OpenAI APIキーの存在確認
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY環境変数が設定されていません")
 
+    # モード設定の読み込み
+    modes_config = load_modes_config()
+
+    # 各モードの保存ディレクトリを作成
+    for mode in modes_config.modes:
+        mode_dir = DATA_DIR / mode.save_dir
+        mode_dir.mkdir(exist_ok=True)
+
+
+def load_modes_config() -> ModesConfig:
+    """モード設定ファイルを読み込む"""
+    # TODO: 実装
+    raise NotImplementedError("load_modes_config is not implemented")
+
+
+def get_mode_by_id(mode_id: str) -> ModeConfig:
+    """モードIDからモード設定を取得"""
+    # TODO: 実装
+    raise NotImplementedError("get_mode_by_id is not implemented")
+
+
+def build_prompt_from_template(template: str, content: str) -> str:
+    """プロンプトテンプレートにコンテンツを埋め込む"""
+    # TODO: 実装
+    raise NotImplementedError("build_prompt_from_template is not implemented")
+
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """ヘルスチェックエンドポイント"""
     return {"status": "ok"}
+
+
+@app.get("/modes", response_model=GetModesResponse)
+async def get_modes() -> GetModesResponse:
+    """
+    利用可能なモード一覧を取得
+
+    Returns:
+        モード一覧とデフォルトモード
+    """
+    # TODO: 実装
+    raise NotImplementedError("get_modes is not implemented")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -260,11 +333,17 @@ async def save_file(request: SaveRequest) -> SaveResponse:
 @app.post("/ask-ai", response_model=AskAIResponse)
 async def ask_ai(request: AskAIRequest) -> AskAIResponse:
     """
-    ユーザーの質問をAIに送信し、回答をファイルとして保存
+    ユーザーの質問をAIに送信し、回答をモード別ディレクトリに保存
 
-    - content: ユーザーの質問
+    - content: ユーザーの質問/入力
+    - mode_id: 使用するモードのID
     - filename: ファイル名（省略時は日時ベースで自動生成）
     """
+    # TODO: mode_idを使用したモード取得とプロンプトテンプレート適用
+    # mode = get_mode_by_id(request.mode_id)
+    # prompt = build_prompt_from_template(mode.prompt_template, request.content)
+    # save_dir = DATA_DIR / mode.save_dir
+
     try:
         # OpenAI APIを呼び出し
         response = openai_client.chat.completions.create(
