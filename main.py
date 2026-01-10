@@ -41,6 +41,8 @@ class SaveResponse(BaseModel):
     success: bool
     filepath: str
     message: str
+    git_pushed: bool = False
+    git_error: str | None = None
 
 
 class AskAIRequest(BaseModel):
