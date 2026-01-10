@@ -594,7 +594,7 @@ async def save_file(request: SaveRequest) -> SaveResponse:
 @app.post("/ask-ai", response_model=AskAIResponse)
 async def ask_ai(request: AskAIRequest) -> AskAIResponse:
     """
-    ユーザーの質問をAIに送信し、回答をモード別ディレクトリに保存
+    ユーザーの質問をAIに送信し、回答をモード別ディレクトリに保存し、git commit & push
 
     - content: ユーザーの質問/入力
     - mode_id: 使用するモードのID
@@ -648,11 +648,17 @@ async def ask_ai(request: AskAIRequest) -> AskAIResponse:
         )
         filepath.write_text(content_to_save, encoding="utf-8")
 
+        # Git commit & push を実行
+        repo_root = get_repo_root()
+        git_success, git_error = await git_commit_and_push(repo_root)
+
         return AskAIResponse(
             success=True,
             ai_response=ai_response,
             filepath=str(filepath),
             message=f"AI回答を保存しました: {mode.name} / {safe_filename}",
+            git_pushed=git_success,
+            git_error=git_error,
         )
 
     except Exception as e:
