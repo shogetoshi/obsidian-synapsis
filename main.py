@@ -201,16 +201,6 @@ async def git_commit_and_push(repo_dir: Path) -> tuple[bool, str | None]:
         return False, f"git operation error: {str(e)}"
 
 
-def get_repo_root() -> Path:
-    """
-    main.pyの親ディレクトリをリポジトリルートとして返す
-
-    Returns:
-        リポジトリのルートディレクトリ
-    """
-    return Path(__file__).parent
-
-
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """ヘルスチェックエンドポイント"""
@@ -597,9 +587,8 @@ async def save_file(request: SaveRequest) -> SaveResponse:
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"ファイル保存に失敗: {e}") from e
 
-    # Git commit & push を実行
-    repo_root = get_repo_root()
-    git_success, git_error = await git_commit_and_push(repo_root)
+    # Git commit & push を実行（data/ディレクトリのリポジトリに対して）
+    git_success, git_error = await git_commit_and_push(DATA_DIR)
 
     return SaveResponse(
         success=True,
@@ -667,9 +656,8 @@ async def ask_ai(request: AskAIRequest) -> AskAIResponse:
         )
         filepath.write_text(content_to_save, encoding="utf-8")
 
-        # Git commit & push を実行
-        repo_root = get_repo_root()
-        git_success, git_error = await git_commit_and_push(repo_root)
+        # Git commit & push を実行（data/ディレクトリのリポジトリに対して）
+        git_success, git_error = await git_commit_and_push(DATA_DIR)
 
         return AskAIResponse(
             success=True,
